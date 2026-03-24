@@ -2,7 +2,6 @@ from aiohttp import web
 from aiogram import Router
 
 from bot.bot_instance import bot
-from bot.services.subscription_delivery import activate_and_deliver_subscription
 from config.config import settings
 from database.crud import get_payment, get_subscription, mark_payment_paid
 from database.db import SessionLocal
@@ -34,8 +33,14 @@ async def cryptobot_webhook(request: web.Request) -> web.Response:
         user_id = payment.user.telegram_id
         await mark_payment_paid(session, payment.id, invoice_id)
 
+    support_contact = getattr(settings, "support_contact", "@support_bot")
     if subscription:
-        await activate_and_deliver_subscription(bot, user_id, subscription)
+        await bot.send_message(
+            user_id,
+            "✅ Оплата подтверждена.\n\n"
+            "📩 Отправьте чек в личные сообщения поддержки, чтобы получить конфигурацию и QR-код.\n"
+            f"Контакт поддержки: {support_contact}"
+        )
 
     return web.json_response({'ok': True})
 
@@ -61,8 +66,14 @@ async def donation_webhook(request: web.Request) -> web.Response:
         await mark_payment_paid(session, payment.id, str(payload.get('transaction_id', payment_id)))
         user_id = payment.user.telegram_id
 
+    support_contact = getattr(settings, "support_contact", "@support_bot")
     if subscription:
-        await activate_and_deliver_subscription(bot, user_id, subscription)
+        await bot.send_message(
+            user_id,
+            "✅ Оплата подтверждена.\n\n"
+            "📩 Отправьте чек в личные сообщения поддержки, чтобы получить конфигурацию и QR-код.\n"
+            f"Контакт поддержки: {support_contact}"
+        )
 
     return web.json_response({'ok': True})
 

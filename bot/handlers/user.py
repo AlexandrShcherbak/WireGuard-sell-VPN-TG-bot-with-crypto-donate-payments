@@ -4,7 +4,6 @@ from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKe
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from sqlalchemy.ext.asyncio import AsyncSession
-from datetime import datetime
 
 # Импорты моделей и функций
 from database.models.subscription import Subscription
@@ -14,7 +13,6 @@ from database.crud import (
     get_or_create_user,
     create_subscription,
     get_subscription,
-    get_user_active_subscription,
     create_payment,
     get_payment,
     mark_payment_paid,
@@ -30,7 +28,6 @@ from bot.keyboards.inline import (
     main_menu_kb
 )
 from bot.states import SupportState
-from bot.services.subscription_delivery import activate_and_deliver_subscription
 from integrations.payments.provider import get_payment_provider, CryptoBotProvider
 from database.db import SessionLocal
 from aiogram.utils.formatting import Text, Bold
@@ -48,18 +45,12 @@ def _build_howto_text() -> str:
         '• Android: https://play.google.com/store/apps/details?id=com.wireguard.android\n'
         '• iOS: https://apps.apple.com/us/app/wireguard/id1441195209\n'
         '• Windows/macOS/Linux: https://www.wireguard.com/install/\n\n'
-        '2) После оплаты получите .conf и QR-код в этом боте.\n'
-        '3) В приложении WireGuard импортируйте конфиг (или отсканируйте QR).\n'
-        '4) Включите туннель и проверьте IP: https://2ip.ru\n\n'
+        '2) После оплаты отправьте чек в поддержку.\n'
+        '3) Поддержка выдаст .conf и QR-код в личные сообщения.\n'
+        '4) В приложении WireGuard импортируйте конфиг (или отсканируйте QR).\n'
+        '5) Включите туннель и проверьте IP: https://2ip.ru\n\n'
         f'Если нужна помощь — {getattr(settings, "support_contact", "@support")}'
     )
-
-
-def fmt_dt(dt: datetime | None) -> str:
-    """Форматирование даты"""
-    if not dt:
-        return "не указано"
-    return dt.strftime("%d.%m.%Y %H:%M")
 
 
 @router.message(Command("start"))
@@ -310,6 +301,21 @@ async def create_donation_payment(call: CallbackQuery) -> None:
         await call.answer("Ошибка при создании платежа", show_alert=True)
 
 
+@router.callback_query(F.data.startswith("pay_sbp:"))
+async def pay_sbp_info(call: CallbackQuery) -> None:
+    """Информация об оплате через СБП"""
+    support_contact = getattr(settings, "support_contact", "@support_bot")
+    await call.message.edit_text(
+        "🏦 <b>Оплата по СБП</b>\n\n"
+        "Для оплаты через СБП напишите в поддержку и запросите актуальные реквизиты.\n"
+        "После перевода отправьте чек в личные сообщения поддержки.\n\n"
+        f"Контакт поддержки: {support_contact}",
+        reply_markup=get_main_keyboard(),
+        parse_mode=ParseMode.HTML
+    )
+    await call.answer()
+
+
 @router.callback_query(F.data.startswith("check_payment:"))
 async def check_payment_status(call: CallbackQuery) -> None:
     """Проверка статуса платежа"""
@@ -365,14 +371,14 @@ async def check_payment_status(call: CallbackQuery) -> None:
             # Подтверждаем оплату
             await mark_payment_paid(session, payment.id, payment.provider_payment_id)
             
-        # Активируем подписку и доставляем конфиг
-        await activate_and_deliver_subscription(call.bot, call.from_user.id, subscription)
-        await call.answer("✅ Оплата подтверждена! Подписка активирована.", show_alert=True)
+        support_contact = getattr(settings, "support_contact", "@support_bot")
+        await call.answer("✅ Оплата подтверждена", show_alert=False)
         
         # Возвращаемся в меню
         await call.message.edit_text(
-            "✅ Подписка успешно активирована!\n"
-            "Проверьте личные сообщения для получения конфигурации.",
+            "✅ Оплата подтверждена!\n\n"
+            "📩 Отправьте чек в личные сообщения поддержки для получения конфигурации и QR-кода.\n"
+            f"Контакт поддержки: {support_contact}",
             reply_markup=get_main_keyboard()
         )
         
@@ -410,49 +416,6 @@ async def back_to_subscription(call: CallbackQuery) -> None:
     except Exception as e:
         logger.error(f"Error in back_to_subscription: {e}")
         await call.answer("Ошибка", show_alert=True)
-
-
-@router.callback_query(F.data == "my_sub")
-async def my_subscription(call: CallbackQuery) -> None:
-    """Просмотр текущей подписки"""
-    try:
-        async with SessionLocal() as session:
-            user = await get_or_create_user(
-                session=session,
-                telegram_id=call.from_user.id,
-                username=call.from_user.username,
-                full_name=call.from_user.full_name or "Unknown",
-            )
-            active_sub = await get_user_active_subscription(session, user.id)
-
-        if not active_sub:
-            await call.message.edit_text(
-                '❌ У вас пока нет активной подписки.\n\n'
-                'Нажмите "Купить подписку" для оформления.',
-                reply_markup=get_main_keyboard()
-            )
-            await call.answer()
-            return
-
-        status_emoji = "✅" if active_sub.status == 'active' else "⏳"
-        text = (
-            f'{status_emoji} <b>Текущая подписка</b>\n\n'
-            f'Статус: <b>{active_sub.status}</b>\n'
-            f'Начало: {fmt_dt(active_sub.starts_at)}\n'
-            f'Окончание: {fmt_dt(active_sub.ends_at)}\n'
-            f'Дней: {active_sub.plan_days}\n'
-        )
-        
-        await call.message.edit_text(
-            text,
-            reply_markup=get_main_keyboard(),
-            parse_mode=ParseMode.HTML
-        )
-        await call.answer()
-        
-    except Exception as e:
-        logger.error(f"Error in my_subscription: {e}")
-        await call.answer("Ошибка при получении информации", show_alert=True)
 
 
 @router.callback_query(F.data == "paid")

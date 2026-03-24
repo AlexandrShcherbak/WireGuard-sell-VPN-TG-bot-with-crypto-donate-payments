@@ -6,7 +6,6 @@ def get_main_keyboard() -> InlineKeyboardMarkup:
     """Главное меню"""
     builder = InlineKeyboardBuilder()
     builder.button(text="📦 Купить подписку", callback_data="buy")
-    builder.button(text="📋 Моя подписка", callback_data="my_sub")
     builder.button(text="📘 Инструкция", callback_data="howto")
     builder.button(text="🎁 Пробный период", callback_data="trial")
     builder.button(text="📞 Поддержка", callback_data="support")
@@ -29,6 +28,7 @@ def get_payment_methods_keyboard(subscription_id: int) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     builder.button(text="🤖 CryptoBot", callback_data=f"pay_crypto:{subscription_id}")
     builder.button(text="💝 DonationAlerts", callback_data=f"pay_donation:{subscription_id}")
+    builder.button(text="🏦 СБП", callback_data=f"pay_sbp:{subscription_id}")
     builder.button(text="◀️ Назад", callback_data="menu")
     builder.adjust(1)
     return builder.as_markup()
