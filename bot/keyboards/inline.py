@@ -26,9 +26,15 @@ def get_subscription_keyboard(subscription_id: int) -> InlineKeyboardMarkup:
 def get_payment_methods_keyboard(subscription_id: int) -> InlineKeyboardMarkup:
     """Клавиатура с выбором способа оплаты"""
     builder = InlineKeyboardBuilder()
-    builder.button(text="🤖 CryptoBot", callback_data=f"pay_crypto:{subscription_id}")
-    builder.button(text="💝 DonationAlerts", callback_data=f"pay_donation:{subscription_id}")
-    builder.button(text="🏦 СБП", callback_data=f"pay_sbp:{subscription_id}")
+    builder.button(text="💳 FreeKassa", callback_data=f"pay_provider:freekassa:{subscription_id}")
+    builder.button(text="💳 Platega", callback_data=f"pay_provider:platega:{subscription_id}")
+    builder.button(text="💳 SeverPay", callback_data=f"pay_provider:severpay:{subscription_id}")
+    builder.button(text="💳 CryptoCloud", callback_data=f"pay_provider:cryptocloud:{subscription_id}")
+    builder.button(text="💳 CrystalPay", callback_data=f"pay_provider:crystalpay:{subscription_id}")
+    builder.button(text="🤖 CryptoBot", callback_data=f"pay_provider:cryptobot:{subscription_id}")
+    builder.button(text="💝 DonationAlerts", callback_data=f"pay_provider:donationalerts:{subscription_id}")
+    builder.button(text="⭐ Boosty", callback_data=f"pay_provider:boosty:{subscription_id}")
+    builder.button(text="🏦 СБП (ручная оплата)", callback_data=f"pay_sbp:{subscription_id}")
     builder.button(text="◀️ Назад", callback_data="menu")
     builder.adjust(1)
     return builder.as_markup()

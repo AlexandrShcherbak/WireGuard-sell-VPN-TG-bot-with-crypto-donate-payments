@@ -1,6 +1,12 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
+from hashlib import md5
+import hmac
 from urllib.parse import urlencode
+import json
 import time
+
 import aiohttp
 
 
@@ -17,31 +23,115 @@ class Invoice:
 
 
 class StubPaymentProvider:
-    """Временная заглушка для будущей интеграции с платежным API."""
-
     async def create_invoice(self, user_id: int, amount_rub: int, payload: str | None = None) -> Invoice:
-        invoice_id = f'stub-invoice-{user_id}-{amount_rub}'
-        return Invoice(invoice_id=invoice_id, pay_url=f'https://example.com/pay/{invoice_id}')
+        invoice_id = payload or f"stub-invoice-{user_id}-{amount_rub}"
+        return Invoice(invoice_id=invoice_id, pay_url=f"https://example.com/pay/{invoice_id}")
 
     async def get_status(self, invoice_id: str) -> PaymentStatus:
         return PaymentStatus(invoice_id=invoice_id, state='pending')
 
 
-class CryptoBotProvider:
-    """Интеграция с @CryptoBot через Crypto Pay API."""
+class RedirectPaymentProvider:
+    def __init__(self, base_url: str, provider_name: str) -> None:
+        self.base_url = base_url.rstrip('/')
+        self.provider_name = provider_name
 
+    async def create_invoice(self, user_id: int, amount_rub: int, payload: str | None = None) -> Invoice:
+        invoice_id = payload or f"{self.provider_name}_{user_id}_{amount_rub}_{int(time.time())}"
+        query = urlencode({'amount': amount_rub, 'payload': invoice_id})
+        return Invoice(invoice_id=invoice_id, pay_url=f"{self.base_url}?{query}")
+
+    async def get_status(self, invoice_id: str) -> PaymentStatus:
+        return PaymentStatus(invoice_id=invoice_id, state='pending')
+
+
+class FreekassaProvider:
+    def __init__(self, merchant_id: str, secret_word_1: str) -> None:
+        self.merchant_id = merchant_id
+        self.secret_word_1 = secret_word_1
+        self.base_url = 'https://pay.fk.money/'
+
+    async def create_invoice(self, user_id: int, amount_rub: int, payload: str | None = None) -> Invoice:
+        order_id = payload or f"fk_{user_id}_{int(time.time())}"
+        amount = f"{amount_rub:.2f}"
+        currency = 'RUB'
+        sign = md5(f"{self.merchant_id}:{amount}:{self.secret_word_1}:{currency}:{order_id}".encode()).hexdigest()
+        params = {
+            'm': self.merchant_id,
+            'oa': amount,
+            'currency': currency,
+            'o': order_id,
+            's': sign,
+            'lang': 'ru',
+        }
+        return Invoice(invoice_id=order_id, pay_url=f"{self.base_url}?{urlencode(params)}")
+
+    async def get_status(self, invoice_id: str) -> PaymentStatus:
+        return PaymentStatus(invoice_id=invoice_id, state='pending')
+
+
+class SeverPayProvider:
+    def __init__(self, base_url: str, mid: int, token: str) -> None:
+        self.base_url = base_url.rstrip('/')
+        self.mid = mid
+        self.token = token
+
+    def _sign_payload(self, data: dict) -> dict:
+        payload = dict(data)
+        payload['mid'] = self.mid
+        payload['salt'] = f"{int(time.time())}-{payload.get('order_id', 'order')}"
+        payload_sorted = dict(sorted(payload.items()))
+        payload_sorted['sign'] = hmac.new(
+            self.token.encode(),
+            json.dumps(payload_sorted, ensure_ascii=False).encode(),
+            digestmod='sha256',
+        ).hexdigest()
+        return payload_sorted
+
+    async def create_invoice(self, user_id: int, amount_rub: int, payload: str | None = None) -> Invoice:
+        order_id = payload or f"sp_{user_id}_{int(time.time())}"
+        request_data = self._sign_payload(
+            {
+                'order_id': order_id,
+                'amount': float(amount_rub),
+                'currency': 'RUB',
+                'client_id': str(user_id),
+                'client_email': f"user{user_id}@example.com",
+            }
+        )
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                f"{self.base_url}/payin/create",
+                json=request_data,
+                timeout=20,
+            ) as resp:
+                data = await resp.json(content_type=None)
+                if resp.status != 200 or not data.get('status'):
+                    raise RuntimeError(f"SeverPay create payment error: {data}")
+        return Invoice(invoice_id=str(data['data']['id']), pay_url=data['data']['url'])
+
+    async def get_status(self, invoice_id: str) -> PaymentStatus:
+        request_data = self._sign_payload({'id': str(invoice_id)})
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                f"{self.base_url}/payin/get",
+                json=request_data,
+                timeout=20,
+            ) as resp:
+                data = await resp.json(content_type=None)
+                if resp.status != 200 or not data.get('status'):
+                    return PaymentStatus(invoice_id=invoice_id, state='pending')
+        return PaymentStatus(invoice_id=invoice_id, state=str(data.get('data', {}).get('status', 'pending')))
+
+
+class CryptoBotProvider:
     def __init__(self, token: str) -> None:
         self.token = token
         self.base_url = 'https://pay.crypt.bot/api'
 
     async def create_invoice(self, user_id: int, amount_rub: int, payload: str | None = None) -> Invoice:
         url = f"{self.base_url}/createInvoice"
-        
-        headers = {
-            "Crypto-Pay-API-Token": self.token,
-            "Content-Type": "application/json"
-        }
-        
+        headers = {"Crypto-Pay-API-Token": self.token, "Content-Type": "application/json"}
         data = {
             "currency_type": "fiat",
             "fiat": "RUB",
@@ -50,126 +140,77 @@ class CryptoBotProvider:
             "allow_comments": False,
             "allow_anonymous": False,
         }
-        
         if payload:
             data["payload"] = payload
-        
         async with aiohttp.ClientSession() as session:
             async with session.post(url, headers=headers, json=data, timeout=20) as resp:
                 if resp.status != 200:
-                    error_text = await resp.text()
-                    raise RuntimeError(f"CryptoBot API error: {resp.status} - {error_text}")
-                
+                    raise RuntimeError(f"CryptoBot API error: {resp.status} - {await resp.text()}")
                 response_data = await resp.json()
-        
         if not response_data.get('ok'):
             raise RuntimeError(f"CryptoBot invoice creation failed: {response_data}")
-        
         result = response_data['result']
-        
-        # Используем правильное поле для URL
         pay_url = result.get('bot_invoice_url') or result.get('pay_url')
-        
         return Invoice(invoice_id=str(result['invoice_id']), pay_url=pay_url)
 
     async def get_status(self, invoice_id: str) -> PaymentStatus:
         url = f"{self.base_url}/getInvoices"
-        
-        headers = {
-            "Crypto-Pay-API-Token": self.token,
-            "Content-Type": "application/json"
-        }
-        
-        # Для GET запроса с параметрами
+        headers = {"Crypto-Pay-API-Token": self.token, "Content-Type": "application/json"}
         params = {'invoice_ids': invoice_id}
-        
         async with aiohttp.ClientSession() as session:
             async with session.get(url, headers=headers, params=params, timeout=20) as resp:
                 if resp.status != 200:
-                    error_text = await resp.text()
-                    raise RuntimeError(f"CryptoBot API error: {resp.status} - {error_text}")
-                
+                    raise RuntimeError(f"CryptoBot API error: {resp.status} - {await resp.text()}")
                 data = await resp.json()
-        
         if not data.get('ok'):
             raise RuntimeError(f"CryptoBot getInvoices failed: {data}")
-        
         items = data.get('result', {}).get('items', [])
         if not items:
             return PaymentStatus(invoice_id=invoice_id, state='not_found')
-        
-        # Статус может быть 'active', 'paid', 'expired'
-        status = items[0].get('status', 'pending')
-        return PaymentStatus(invoice_id=invoice_id, state=status)
+        return PaymentStatus(invoice_id=invoice_id, state=items[0].get('status', 'pending'))
 
 
-class DonationAlertsProvider:
-    """Интеграция с DonationAlerts для приема донатов."""
-
-    def __init__(self, token: str, base_url: str) -> None:
-        self.token = token
-        self.base_url = base_url.rstrip('/')
-
-    async def create_invoice(self, user_id: int, amount_rub: int, payload: str | None = None) -> Invoice:
-        # Создаем уникальный ID инвойса
-        timestamp = int(time.time())
-        invoice_id = payload or f"donation_{user_id}_{amount_rub}_{timestamp}"
-        
-        # Параметры для DonationAlerts
-        params = {
-            'amount': amount_rub,
-            'currency': 'RUB',
-            'comment': f'VPN subscription for user {user_id}',
-            'payload': invoice_id,
-            'token': self.token  # Добавляем токен для авторизации
-        }
-        
-        # Формируем URL для доната
-        # Для DonationAlerts используется формат: https://www.donationalerts.com/r/username
-        pay_url = f"{self.base_url}?{urlencode(params)}"
-        
-        return Invoice(invoice_id=invoice_id, pay_url=pay_url)
-
-    async def get_status(self, invoice_id: str) -> PaymentStatus:
-        # Для DonationAlerts нужно настроить webhook
-        # Пока возвращаем pending
-        return PaymentStatus(invoice_id=invoice_id, state='pending')
-
-
-# Фабрика для создания провайдера
 def get_payment_provider(provider_name: str, settings):
-    """Создает платежный провайдер на основе настроек"""
-    print(f"DEBUG: Creating payment provider for: {provider_name}")
-    print(f"DEBUG: Settings type: {type(settings)}")
-    print(f"DEBUG: Settings dir: {dir(settings)}")
-    
-    if provider_name == "cryptobot":
-        token = getattr(settings, 'cryptobot_api_token', None)
-        print(f"DEBUG: CryptoBot token exists: {bool(token)}")
-        if not token:
-            raise ValueError("CryptoBot API token not configured")
-        return CryptoBotProvider(token=token)
-    
-    elif provider_name == "donationalerts":
-        token = getattr(settings, 'donationalerts_token', None)
-        base_url = getattr(settings, 'donationalerts_base_url', None)
-        
-        print(f"DEBUG: DonationAlerts token exists: {bool(token)}")
-        print(f"DEBUG: DonationAlerts base_url: {base_url}")
-        
-        if not token:
-            raise ValueError("DonationAlerts token not configured")
-        
-        # Если base_url не задан, используем значение по умолчанию
-        if not base_url:
-            base_url = "https://www.donationalerts.com/r/countvpn"
-            print(f"DEBUG: Using default base_url: {base_url}")
-            
-        return DonationAlertsProvider(
-            token=token,
-            base_url=base_url
-        )
-    
-    else:
-        print(f"DEBUG: Using stub provider for: {provider_name}")
-        return StubPaymentProvider()
+    provider = provider_name.lower()
+
+    if provider == "cryptobot":
+        if not settings.cryptobot_token:
+            raise ValueError("CryptoBot token not configured")
+        return CryptoBotProvider(settings.cryptobot_token)
+
+    if provider == "freekassa":
+        if not settings.freekassa_shop_id or not settings.freekassa_secret_word_1:
+            raise ValueError("FreeKassa credentials not configured")
+        return FreekassaProvider(settings.freekassa_shop_id, settings.freekassa_secret_word_1)
+
+    if provider == "severpay":
+        if not settings.severpay_mid or not settings.severpay_token:
+            raise ValueError("SeverPay credentials not configured")
+        return SeverPayProvider(settings.severpay_base_url, settings.severpay_mid, settings.severpay_token)
+
+    if provider == "cryptocloud":
+        if not settings.cryptocloud_api_key:
+            raise ValueError("CryptoCloud API key not configured")
+        return RedirectPaymentProvider("https://cryptocloud.plus", provider)
+
+    if provider == "donationalerts":
+        if not settings.donationalerts_base_url:
+            raise ValueError("DonationAlerts url not configured")
+        return RedirectPaymentProvider(settings.donationalerts_base_url, provider)
+
+    if provider == "boosty":
+        if not settings.boosty_base_url:
+            raise ValueError("Boosty url not configured")
+        return RedirectPaymentProvider(settings.boosty_base_url, provider)
+
+    if provider == "crystalpay":
+        if not settings.crystalpay_base_url:
+            raise ValueError("CrystalPay url not configured")
+        return RedirectPaymentProvider(settings.crystalpay_base_url, provider)
+
+    if provider == "platega":
+        if not settings.platega_base_url:
+            raise ValueError("Platega url not configured")
+        return RedirectPaymentProvider(settings.platega_base_url, provider)
+
+    return StubPaymentProvider()
