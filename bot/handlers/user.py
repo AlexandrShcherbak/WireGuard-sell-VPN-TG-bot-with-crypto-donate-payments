@@ -1,14 +1,4 @@
 import logging
-<<<<<<< codex/remove-secrets-and-add-payment-gateways-o59w8t
-from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
-from aiogram.filters import Command
-from aiogram.fsm.context import FSMContext
-from sqlalchemy.ext.asyncio import AsyncSession
-
-# Импорты моделей и функций
-from database.models.subscription import Subscription
-=======
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.filters import Command
@@ -17,7 +7,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 # Импорты моделей и функций
 from database.models.subscription import Subscription
->>>>>>> main
 from database.models.user import User
 from database.models.payment import Payment
 from database.crud import (
@@ -44,7 +33,6 @@ from database.db import SessionLocal
 from aiogram.utils.formatting import Text, Bold
 from aiogram.enums import ParseMode
 
-<<<<<<< codex/remove-secrets-and-add-payment-gateways-o59w8t
 router = Router()
 logger = logging.getLogger(__name__)
 
@@ -70,33 +58,6 @@ def _legal_links_keyboard() -> InlineKeyboardMarkup:
 
 
 def _build_howto_text() -> str:
-=======
-router = Router()
-logger = logging.getLogger(__name__)
-
-
-def _legal_links_keyboard() -> InlineKeyboardMarkup:
-    privacy_url = settings.privacy_url or 'https://telegra.ph/Politika-konfidencialnosti-08-15-17'
-    terms_url = settings.terms_url or 'https://telegra.ph/Polzovatelskoe-soglashenie-08-15-10'
-
-    support_email = settings.support_email
-    owner_contact = settings.owner_contact
-    support_url = support_email if support_email.startswith('mailto:') else f"mailto:{support_email}"
-    owner_url = owner_contact if owner_contact.startswith('mailto:') else f"mailto:{owner_contact}"
-
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text='🔐 Политика конфиденциальности', url=privacy_url)],
-            [InlineKeyboardButton(text='📜 Пользовательское соглашение', url=terms_url)],
-            [InlineKeyboardButton(text='✉️ Email поддержки', url=support_url)],
-            [InlineKeyboardButton(text='🏢 Контакты владельца', url=owner_url)],
-            [InlineKeyboardButton(text='⬅️ В меню', callback_data='menu')],
-        ]
-    )
-
-
-def _build_howto_text() -> str:
->>>>>>> main
     """Текст инструкции по подключению"""
     return (
         '📘 <b>Как подключить VPN за 1 минуту</b>\n\n'
@@ -104,14 +65,6 @@ def _build_howto_text() -> str:
         '• Android: https://play.google.com/store/apps/details?id=com.wireguard.android\n'
         '• iOS: https://apps.apple.com/us/app/wireguard/id1441195209\n'
         '• Windows/macOS/Linux: https://www.wireguard.com/install/\n\n'
-<<<<<<< codex/remove-secrets-and-add-payment-gateways-o59w8t
-        f'2) После оплаты перейдите в бота: {settings.telegram_bot_url}\n'
-        '3) Отправьте чек в поддержку.\n'
-        '4) Поддержка выдаст .conf и QR-код в личные сообщения.\n'
-        '5) В приложении WireGuard импортируйте конфиг (или отсканируйте QR).\n'
-        '6) Включите туннель и проверьте IP: https://2ip.ru\n\n'
-        f'Если нужна помощь — {getattr(settings, "support_contact", "@support")}'
-    )
 
 
 def _provider_title(provider_name: str) -> str:
@@ -134,7 +87,6 @@ def _provider_title(provider_name: str) -> str:
         '6) Включите туннель и проверьте IP: https://2ip.ru\n\n'
         f'Если нужна помощь — {getattr(settings, "support_contact", "@support")}'
     )
->>>>>>> main
 
 
 def _provider_title(provider_name: str) -> str:
@@ -205,39 +157,6 @@ async def open_menu(call: CallbackQuery) -> None:
     await call.answer()
 
 
-<<<<<<< codex/remove-secrets-and-add-payment-gateways-o59w8t
-@router.callback_query(F.data == "support")
-async def write_to_support(call: CallbackQuery) -> None:
-    """Обработчик кнопки поддержки"""
-    support_contact = getattr(settings, "support_contact", "@support_bot")
-    await call.message.edit_text(
-        f'📞 Написать в поддержку: {support_contact}\n\n'
-        f'Бот для покупки/подтверждения оплаты: {settings.telegram_bot_url}\n'
-        'Опишите вашу проблему, и мы поможем!',
-        reply_markup=get_main_keyboard(),
-    )
-    await call.answer()
-
-
-@router.callback_query(F.data == "legal_docs")
-async def legal_docs(call: CallbackQuery) -> None:
-    """Показывает юридические документы и не-чат контакты."""
-    await call.message.edit_text(
-        "📄 <b>Юридические документы и контакты</b>\n\n"
-        "Откройте документы по кнопкам ниже:\n"
-        "• Политика конфиденциальности\n"
-        "• Пользовательское соглашение\n\n"
-        "Для связи используйте email поддержки/владельца (не чат/группу).",
-        parse_mode=ParseMode.HTML,
-        reply_markup=_legal_links_keyboard(),
-        disable_web_page_preview=True,
-    )
-    await call.answer()
-
-
-@router.callback_query(F.data == "buy")
-async def buy_sub(call: CallbackQuery) -> None:
-=======
 @router.callback_query(F.data == "support")
 async def write_to_support(call: CallbackQuery) -> None:
     """Обработчик кнопки поддержки"""
@@ -253,7 +172,6 @@ async def write_to_support(call: CallbackQuery) -> None:
 
 @router.callback_query(F.data == "buy")
 async def buy_sub(call: CallbackQuery) -> None:
->>>>>>> main
     """Обработчик покупки подписки"""
     try:
         async with SessionLocal() as session:
@@ -299,25 +217,6 @@ async def trial_info(call: CallbackQuery) -> None:
     )
 
 
-<<<<<<< codex/remove-secrets-and-add-payment-gateways-o59w8t
-@router.callback_query(F.data.startswith("pay_provider:"))
-async def create_provider_payment(call: CallbackQuery) -> None:
-    """Создание платежа через выбранный провайдер."""
-    try:
-        _, provider_name, subscription_id_raw = call.data.split(":", 2)
-        subscription_id = int(subscription_id_raw)
-        logger.info(
-            "Payment request received. provider=%s subscription_id=%s tg_user_id=%s",
-            provider_name,
-            subscription_id,
-            call.from_user.id,
-        )
-        
-        async with SessionLocal() as session:
-            subscription = await get_subscription(session, subscription_id)
-            user = await get_or_create_user(
-                session=session,
-=======
 @router.callback_query(F.data.startswith("pay_provider:"))
 async def create_provider_payment(call: CallbackQuery) -> None:
     """Создание платежа через выбранный провайдер."""
@@ -329,7 +228,6 @@ async def create_provider_payment(call: CallbackQuery) -> None:
             subscription = await get_subscription(session, subscription_id)
             user = await get_or_create_user(
                 session=session,
->>>>>>> main
                 telegram_id=call.from_user.id,
                 username=call.from_user.username,
                 full_name=call.from_user.full_name or "Unknown",
@@ -339,31 +237,6 @@ async def create_provider_payment(call: CallbackQuery) -> None:
                 await call.answer("Заказ не найден", show_alert=True)
                 return
 
-<<<<<<< codex/remove-secrets-and-add-payment-gateways-o59w8t
-            payment = await create_payment(
-                session=session,
-                user_id=user.id,
-                amount_rub=subscription.price_rub,
-                subscription_id=subscription.id,
-                provider=provider_name,
-            )
-            logger.debug(
-                "Payment object created. payment_id=%s user_id=%s provider=%s amount=%s",
-                payment.id,
-                user.id,
-                provider_name,
-                subscription.price_rub,
-            )
-
-        provider = get_payment_provider(provider_name, settings)
-        payload = f"subscription:{subscription.id}:payment:{payment.id}"
-        logger.debug("Creating remote invoice. provider=%s payload=%s", provider_name, payload)
-        invoice = await provider.create_invoice(
-            user_id=call.from_user.id,
-            amount_rub=subscription.price_rub,
-            payload=payload,
-        )
-=======
             payment = await create_payment(
                 session=session,
                 user_id=user.id,
@@ -379,7 +252,6 @@ async def create_provider_payment(call: CallbackQuery) -> None:
             amount_rub=subscription.price_rub,
             payload=payload,
         )
->>>>>>> main
 
         # Сохраняем ID инвойса
         async with SessionLocal() as session:
@@ -388,47 +260,15 @@ async def create_provider_payment(call: CallbackQuery) -> None:
                 db_payment.provider_payment_id = invoice.invoice_id
                 await session.commit()
 
-<<<<<<< codex/remove-secrets-and-add-payment-gateways-o59w8t
         await call.message.edit_text(
             f'✅ <b>Счёт создан ({_provider_title(provider_name)})</b>\n\n'
             f'Сумма: {subscription.price_rub} ₽\n'
             f'Номер счёта: <code>{invoice.invoice_id}</code>\n\n'
             f'Для оплаты перейдите по ссылке:\n{invoice.pay_url}',
-=======
-        await call.message.edit_text(
-            f'✅ <b>Счёт создан ({_provider_title(provider_name)})</b>\n\n'
-            f'Сумма: {subscription.price_rub} ₽\n'
-            f'Номер счёта: <code>{invoice.invoice_id}</code>\n\n'
-            f'Для оплаты перейдите по ссылке:\n{invoice.pay_url}',
->>>>>>> main
             reply_markup=check_payment_kb(payment.id),
             parse_mode=ParseMode.HTML,
             disable_web_page_preview=True
         )
-<<<<<<< codex/remove-secrets-and-add-payment-gateways-o59w8t
-        await call.answer()
-    except ValueError as e:
-        logger.warning("Provider config error. provider=%s error=%s", call.data, e)
-        await call.answer(str(e), show_alert=True)
-    except Exception as e:
-        logger.exception("Unhandled error in create_provider_payment. callback_data=%s", call.data)
-        await call.answer("Ошибка при создании платежа", show_alert=True)
-
-
-@router.callback_query(F.data.startswith("pay_sbp:"))
-async def pay_sbp_info(call: CallbackQuery) -> None:
-    """Информация об оплате через СБП"""
-    support_contact = getattr(settings, "support_contact", "@support_bot")
-    await call.message.edit_text(
-        "🏦 <b>Оплата по СБП</b>\n\n"
-        "Для оплаты через СБП напишите в поддержку и запросите актуальные реквизиты.\n"
-        "После перевода отправьте чек в личные сообщения поддержки.\n\n"
-        f"Контакт поддержки: {support_contact}",
-        reply_markup=get_main_keyboard(),
-        parse_mode=ParseMode.HTML
-    )
-    await call.answer()
-=======
         await call.answer()
     except ValueError as e:
         logger.error(f"Provider config error: {e}")
@@ -451,7 +291,6 @@ async def pay_sbp_info(call: CallbackQuery) -> None:
         parse_mode=ParseMode.HTML
     )
     await call.answer()
->>>>>>> main
 
 
 @router.callback_query(F.data.startswith("check_payment:"))
@@ -484,7 +323,6 @@ async def check_payment_status(call: CallbackQuery) -> None:
                 return
 
             # Проверяем статус в зависимости от провайдера
-<<<<<<< codex/remove-secrets-and-add-payment-gateways-o59w8t
             is_paid = False
             
             if payment.provider == 'cryptobot':
@@ -501,24 +339,6 @@ async def check_payment_status(call: CallbackQuery) -> None:
                     "Ожидайте подтверждения от поддержки.",
                     show_alert=True
                 )
-=======
-            is_paid = False
-            
-            if payment.provider == 'cryptobot':
-                cryptobot_token = getattr(settings, 'cryptobot_token', None) or getattr(settings, 'payment_token', None)
-                if cryptobot_token and payment.provider_payment_id:
-                    provider = CryptoBotProvider(cryptobot_token)
-                    status = await provider.get_status(payment.provider_payment_id)
-                    is_paid = status.state == 'paid'
-            elif payment.provider in {'donationalerts', 'freekassa', 'platega', 'severpay', 'cryptocloud', 'crystalpay', 'boosty'}:
-                # Для DonationAlerts нужно настроить webhook
-                # Пока пользователь подтверждает вручную
-                await call.answer(
-                    "Для выбранного способа оплата подтверждается вручную. "
-                    "Ожидайте подтверждения от поддержки.",
-                    show_alert=True
-                )
->>>>>>> main
                 return
 
             if not is_paid:
@@ -532,7 +352,6 @@ async def check_payment_status(call: CallbackQuery) -> None:
         await call.answer("✅ Оплата подтверждена", show_alert=False)
         
         # Возвращаемся в меню
-<<<<<<< codex/remove-secrets-and-add-payment-gateways-o59w8t
         await call.message.edit_text(
             "✅ Оплата подтверждена!\n\n"
             f"🤖 Перейдите в Telegram-бот: {settings.telegram_bot_url}\n"
@@ -540,15 +359,6 @@ async def check_payment_status(call: CallbackQuery) -> None:
             f"Контакт поддержки: {support_contact}",
             reply_markup=get_main_keyboard()
         )
-=======
-        await call.message.edit_text(
-            "✅ Оплата подтверждена!\n\n"
-            f"🤖 Перейдите в Telegram-бот: {settings.telegram_bot_url}\n"
-            "📩 Отправьте чек в личные сообщения поддержки для получения конфигурации и QR-кода.\n"
-            f"Контакт поддержки: {support_contact}",
-            reply_markup=get_main_keyboard()
-        )
->>>>>>> main
         
     except Exception as e:
         logger.error(f"Error in check_payment_status: {e}")

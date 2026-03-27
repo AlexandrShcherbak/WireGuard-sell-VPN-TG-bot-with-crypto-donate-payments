@@ -54,8 +54,8 @@ def _load_env_files() -> None:
         if legacy_token:
             os.environ['CRYPTOBOT_TOKEN'] = legacy_token
 
-    if 'DONATION_BASE_URL' not in os.environ and 'DONATIONALERTS_URL' in os.environ:
-        os.environ['DONATION_BASE_URL'] = os.environ['DONATIONALERTS_URL']
+    if 'DONATIONALERTS_BASE_URL' not in os.environ and 'DONATIONALERTS_URL' in os.environ:
+        os.environ['DONATIONALERTS_BASE_URL'] = os.environ['DONATIONALERTS_URL']
 
 
 class Settings(BaseSettings):
@@ -74,14 +74,6 @@ class Settings(BaseSettings):
     cryptobot_token: str | None = Field(default=None, env='CRYPTOBOT_TOKEN')
     donationalerts_token: str | None = Field(default=None, env='DONATIONALERTS_TOKEN') 
     donationalerts_base_url: str | None = Field(default=None, env='DONATIONALERTS_BASE_URL')
-<<<<<<< codex/remove-secrets-and-add-payment-gateways-o59w8t
-    donationalerts_client_id: str | None = Field(default=None, env='DONATIONALERTS_CLIENT_ID')
-    donationalerts_client_secret: str | None = Field(default=None, env='DONATIONALERTS_CLIENT_SECRET')
-    donationalerts_refresh_token: str | None = Field(default=None, env='DONATIONALERTS_REFRESH_TOKEN')
-    donationalerts_access_token: str | None = Field(default=None, env='DONATIONALERTS_ACCESS_TOKEN')
-    donationalerts_webhook_secret: str | None = Field(default=None, env='DONATIONALERTS_WEBHOOK_SECRET')
-=======
->>>>>>> main
     boosty_base_url: str | None = Field(default=None, env='BOOSTY_BASE_URL')
     support_contact: str = Field(default='support@example.com', env='SUPPORT_CONTACT')
     support_email: str = Field(default='support@example.com', env='SUPPORT_EMAIL')
@@ -103,10 +95,6 @@ class Settings(BaseSettings):
     severpay_base_url: str = Field(default='https://severpay.io/api/merchant', env='SEVERPAY_BASE_URL')
     severpay_mid: int | None = Field(default=None, env='SEVERPAY_MID')
     severpay_token: str | None = Field(default=None, env='SEVERPAY_TOKEN')
-<<<<<<< codex/remove-secrets-and-add-payment-gateways-o59w8t
-    severpay_sign_delimiter: str = Field(default='|', env='SEVERPAY_SIGN_DELIMITER')
-=======
->>>>>>> main
 
     cryptocloud_base_url: str = Field(default='https://api.cryptocloud.plus/v2', env='CRYPTOCLOUD_BASE_URL')
     cryptocloud_api_key: str | None = Field(default=None, env='CRYPTOCLOUD_API_KEY')
@@ -140,8 +128,8 @@ class Settings(BaseSettings):
                 or values.get('payment_token')
             )
 
-        if not values.get('DONATION_BASE_URL') and not values.get('donation_base_url'):
-            values['DONATION_BASE_URL'] = values.get('DONATIONALERTS_URL') or values.get('donationalerts_url')
+        if not values.get('DONATIONALERTS_BASE_URL') and not values.get('donationalerts_base_url'):
+            values['DONATIONALERTS_BASE_URL'] = values.get('DONATIONALERTS_URL') or values.get('donationalerts_url')
 
         return values
 
