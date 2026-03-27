@@ -73,9 +73,43 @@ class Settings(BaseSettings):
     payment_token: str | None = Field(default=None, env='PAYMENT_TOKEN')
     cryptobot_token: str | None = Field(default=None, env='CRYPTOBOT_TOKEN')
     donationalerts_token: str | None = Field(default=None, env='DONATIONALERTS_TOKEN') 
-    donationalerts_base_url: str = Field(default='https://www.donationalerts.com/r/countvpn', env='DONATIONALERTS_BASE_URL')
+    donationalerts_base_url: str | None = Field(default=None, env='DONATIONALERTS_BASE_URL')
+    donationalerts_client_id: str | None = Field(default=None, env='DONATIONALERTS_CLIENT_ID')
+    donationalerts_client_secret: str | None = Field(default=None, env='DONATIONALERTS_CLIENT_SECRET')
+    donationalerts_refresh_token: str | None = Field(default=None, env='DONATIONALERTS_REFRESH_TOKEN')
+    donationalerts_access_token: str | None = Field(default=None, env='DONATIONALERTS_ACCESS_TOKEN')
+    donationalerts_webhook_secret: str | None = Field(default=None, env='DONATIONALERTS_WEBHOOK_SECRET')
+    boosty_base_url: str | None = Field(default=None, env='BOOSTY_BASE_URL')
+    support_contact: str = Field(default='https://t.me/alexandrshcherbak', env='SUPPORT_CONTACT')
+    support_email: str = Field(default='scherbakalexanders@gmail.com', env='SUPPORT_EMAIL')
+    owner_contact: str = Field(
+        default='scherbakalexanders@gmail.com; https://t.me/alexandrshcherbak; @alexandrshcherbak',
+        env='OWNER_CONTACT',
+    )
+    telegram_bot_url: str = Field(default='https://t.me/wireguard_easy_buy_bot', env='TELEGRAM_BOT_URL')
 
-    support_contact: str = Field(default='@support', env='SUPPORT_CONTACT')
+    terms_url: str | None = Field(default=None, env='TERMS_URL')
+    privacy_url: str | None = Field(default=None, env='PRIVACY_URL')
+    contacts_url: str | None = Field(default=None, env='CONTACTS_URL')
+
+    freekassa_shop_id: str | None = Field(default=None, env='FREEKASSA_SHOP_ID')
+    freekassa_secret_word_1: str | None = Field(default=None, env='FREEKASSA_SECRET_WORD_1')
+    freekassa_secret_word_2: str | None = Field(default=None, env='FREEKASSA_SECRET_WORD_2')
+
+    platega_base_url: str | None = Field(default=None, env='PLATEGA_BASE_URL')
+    platega_shop_id: str | None = Field(default=None, env='PLATEGA_SHOP_ID')
+    platega_api_key: str | None = Field(default=None, env='PLATEGA_API_KEY')
+
+    severpay_base_url: str = Field(default='https://severpay.io/api/merchant', env='SEVERPAY_BASE_URL')
+    severpay_mid: int | None = Field(default=None, env='SEVERPAY_MID')
+    severpay_token: str | None = Field(default=None, env='SEVERPAY_TOKEN')
+    severpay_sign_delimiter: str = Field(default='|', env='SEVERPAY_SIGN_DELIMITER')
+
+    cryptocloud_base_url: str = Field(default='https://api.cryptocloud.plus/v2', env='CRYPTOCLOUD_BASE_URL')
+    cryptocloud_api_key: str | None = Field(default=None, env='CRYPTOCLOUD_API_KEY')
+
+    crystalpay_base_url: str | None = Field(default=None, env='CRYSTALPAY_BASE_URL')
+    crystalpay_token: str | None = Field(default=None, env='CRYSTALPAY_TOKEN')
 
     # Вебхуки отключены в polling-режиме, поля оставлены для совместимости конфигов.
     sendler_webhook_enabled: bool = Field(default=False, env='SENDLER_WEBHOOK_ENABLED')

@@ -6,10 +6,11 @@
 - Регистрация пользователя в Telegram-боте.
 - Покупка/активация подписки.
 - Генерация WireGuard-конфига по шаблону и выдача `.conf` + QR-кода.
-- Оплата через Crypto Bot и рублёвый донат-сервис.
+- Оплата через FreeKassa, Platega, SeverPay, CryptoCloud, CrystalPay, CryptoBot, DonationAlerts, Boosty и СБП (ручная).
 - Команда `/howto` с краткой инструкцией по подключению.
 - Webhook-интеграции для Crypto Bot / донатов / Sendler.
 - Простая админ-панель (`/admin`) со статистикой.
+- Базовые юридические документы для банковской проверки: политика, соглашение, контакты.
 
 ## Стек
 - `aiogram` (бот)
@@ -31,11 +32,27 @@
    WIREGUARD_SERVER_PUBLIC_KEY=server_public_key
    WIREGUARD_SERVER_ENDPOINT=1.2.3.4:51820
 
-   SUPPORT_CONTACT=@your_support_username
+   SUPPORT_CONTACT=support@example.com
+   SUPPORT_EMAIL=support@example.com
+   OWNER_CONTACT=owner@example.com
+   TELEGRAM_BOT_URL=https://t.me/wireguard_easy_buy_bot
 
    # Платежи
-   CRYPTOBOT_TOKEN=...
-   DONATION_BASE_URL=https://www.donationalerts.com/r/your_page
+   FREEKASSA_SHOP_ID=
+   FREEKASSA_SECRET_WORD_1=
+   FREEKASSA_SECRET_WORD_2=
+   PLATEGA_BASE_URL=
+   PLATEGA_SHOP_ID=
+   PLATEGA_API_KEY=
+   SEVERPAY_MID=
+   SEVERPAY_TOKEN=
+   CRYPTOCLOUD_API_KEY=
+   CRYSTALPAY_BASE_URL=
+   CRYSTALPAY_TOKEN=
+   CRYPTOBOT_TOKEN=
+   DONATIONALERTS_TOKEN=
+   DONATIONALERTS_BASE_URL=
+   BOOSTY_BASE_URL=
 
    # Webhook сервер (для callback от Sendler/донатов/CryptoBot)
    SENDLER_WEBHOOK_ENABLED=true
@@ -85,4 +102,9 @@ python main.py
 
 ## Важно
 - Для безопасности включайте `SENDLER_WEBHOOK_SECRET` и проверяйте секрет в webhook-запросах.
-- Для донат-сервисов статус обычно подтверждается только webhook'ом.
+- Для части платежных провайдеров статус подтверждается вручную поддержкой.
+
+## Юридические документы
+- Политика конфиденциальности: `legal/privacy-policy.md`
+- Пользовательское соглашение: `legal/terms-of-service.md`
+- Контакты владельца/поддержки: `legal/contacts.md`
