@@ -1,6 +1,6 @@
 import logging
 from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import Message, CallbackQuery
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -151,22 +151,6 @@ async def write_to_support(call: CallbackQuery) -> None:
         f'Бот для покупки/подтверждения оплаты: {settings.telegram_bot_url}\n'
         'Опишите вашу проблему, и мы поможем!',
         reply_markup=get_main_keyboard(),
-    )
-    await call.answer()
-
-
-@router.callback_query(F.data == "legal_docs")
-async def legal_docs(call: CallbackQuery) -> None:
-    """Показывает юридические документы и не-чат контакты."""
-    await call.message.edit_text(
-        "📄 <b>Юридические документы и контакты</b>\n\n"
-        "Откройте документы по кнопкам ниже:\n"
-        "• Политика конфиденциальности\n"
-        "• Пользовательское соглашение\n\n"
-        "Для связи используйте email поддержки/владельца (не чат/группу).",
-        parse_mode=ParseMode.HTML,
-        reply_markup=_legal_links_keyboard(),
-        disable_web_page_preview=True,
     )
     await call.answer()
 
