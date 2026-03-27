@@ -8,6 +8,7 @@ def get_main_keyboard() -> InlineKeyboardMarkup:
     builder.button(text="📦 Купить подписку", callback_data="buy")
     builder.button(text="📘 Инструкция", callback_data="howto")
     builder.button(text="🎁 Пробный период", callback_data="trial")
+    builder.button(text="📄 Документы и контакты", callback_data="legal_docs")
     builder.button(text="📞 Поддержка", callback_data="support")
     builder.adjust(1)
     return builder.as_markup()

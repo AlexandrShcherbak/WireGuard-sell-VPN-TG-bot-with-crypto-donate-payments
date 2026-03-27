@@ -37,6 +37,26 @@ router = Router()
 logger = logging.getLogger(__name__)
 
 
+def _legal_links_keyboard() -> InlineKeyboardMarkup:
+    privacy_url = settings.privacy_url or 'https://telegra.ph/Politika-konfidencialnosti-08-15-17'
+    terms_url = settings.terms_url or 'https://telegra.ph/Polzovatelskoe-soglashenie-08-15-10'
+
+    support_email = settings.support_email
+    owner_contact = settings.owner_contact
+    support_url = support_email if support_email.startswith('mailto:') else f"mailto:{support_email}"
+    owner_url = owner_contact if owner_contact.startswith('mailto:') else f"mailto:{owner_contact}"
+
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text='🔐 Политика конфиденциальности', url=privacy_url)],
+            [InlineKeyboardButton(text='📜 Пользовательское соглашение', url=terms_url)],
+            [InlineKeyboardButton(text='✉️ Email поддержки', url=support_url)],
+            [InlineKeyboardButton(text='🏢 Контакты владельца', url=owner_url)],
+            [InlineKeyboardButton(text='⬅️ В меню', callback_data='menu')],
+        ]
+    )
+
+
 def _build_howto_text() -> str:
     """Текст инструкции по подключению"""
     return (
