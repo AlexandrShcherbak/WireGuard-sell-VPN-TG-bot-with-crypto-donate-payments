@@ -5,13 +5,9 @@ from hashlib import md5
 import hmac
 from urllib.parse import urlencode
 import json
-import logging
 import time
 
 import aiohttp
-
-
-logger = logging.getLogger(__name__)
 
 
 @dataclass(slots=True)
@@ -90,16 +86,26 @@ class SeverPayProvider:
         return sign
 
     def _build_payload(self, data: dict) -> dict:
+    def __init__(self, base_url: str, mid: int, token: str) -> None:
+        self.base_url = base_url.rstrip('/')
+        self.mid = mid
+        self.token = token
+
+    def _sign_payload(self, data: dict) -> dict:
         payload = dict(data)
         payload['mid'] = self.mid
         payload['salt'] = f"{int(time.time())}-{payload.get('order_id', 'order')}"
         payload_sorted = dict(sorted(payload.items()))
-        payload_sorted['sign'] = self._generate_sign(payload_sorted)
+        payload_sorted['sign'] = hmac.new(
+            self.token.encode(),
+            json.dumps(payload_sorted, ensure_ascii=False).encode(),
+            digestmod='sha256',
+        ).hexdigest()
         return payload_sorted
 
     async def create_invoice(self, user_id: int, amount_rub: int, payload: str | None = None) -> Invoice:
         order_id = payload or f"sp_{user_id}_{int(time.time())}"
-        request_data = self._build_payload(
+        request_data = self._sign_payload(
             {
                 'order_id': order_id,
                 'amount': float(amount_rub),
@@ -110,6 +116,8 @@ class SeverPayProvider:
             }
         )
         logger.info("Creating SeverPay invoice. order_id=%s amount=%s", order_id, amount_rub)
+            }
+        )
         async with aiohttp.ClientSession() as session:
             async with session.post(
                 f"{self.base_url}/payin/create",
@@ -125,6 +133,10 @@ class SeverPayProvider:
                 if resp.status != 200:
                     raise RuntimeError(f"SeverPay HTTP {resp.status}: {data}")
                 if not data.get('status'):
+                timeout=20,
+            ) as resp:
+                data = await resp.json(content_type=None)
+                if resp.status != 200 or not data.get('status'):
                     raise RuntimeError(f"SeverPay create payment error: {data}")
         return Invoice(invoice_id=str(data['data']['id']), pay_url=data['data']['url'])
 
@@ -138,6 +150,7 @@ class SeverPayProvider:
         }
         request_data = self._build_payload({'id': str(invoice_id)})
         logger.info("Fetching SeverPay status. invoice_id=%s", invoice_id)
+        request_data = self._sign_payload({'id': str(invoice_id)})
         async with aiohttp.ClientSession() as session:
             async with session.post(
                 f"{self.base_url}/payin/get",
@@ -159,6 +172,12 @@ class SeverPayProvider:
                     return PaymentStatus(invoice_id=invoice_id, state='pending')
         upstream_state = str(data.get('data', {}).get('status', 'new'))
         return PaymentStatus(invoice_id=invoice_id, state=status_map.get(upstream_state, 'pending'))
+                timeout=20,
+            ) as resp:
+                data = await resp.json(content_type=None)
+                if resp.status != 200 or not data.get('status'):
+                    return PaymentStatus(invoice_id=invoice_id, state='pending')
+        return PaymentStatus(invoice_id=invoice_id, state=str(data.get('data', {}).get('status', 'pending')))
 
 
 class CryptoBotProvider:
@@ -255,6 +274,8 @@ class DonationAlertsProvider:
 def get_payment_provider(provider_name: str, settings):
     provider = provider_name.lower()
     logger.info("Creating payment provider: %s", provider)
+def get_payment_provider(provider_name: str, settings):
+    provider = provider_name.lower()
 
     if provider == "cryptobot":
         if not settings.cryptobot_token:
@@ -275,6 +296,7 @@ def get_payment_provider(provider_name: str, settings):
             settings.severpay_token,
             sign_delimiter=settings.severpay_sign_delimiter,
         )
+        return SeverPayProvider(settings.severpay_base_url, settings.severpay_mid, settings.severpay_token)
 
     if provider == "cryptocloud":
         if not settings.cryptocloud_api_key:
@@ -293,6 +315,7 @@ def get_payment_provider(provider_name: str, settings):
             client_secret=settings.donationalerts_client_secret,
             webhook_secret=settings.donationalerts_webhook_secret,
         )
+        return RedirectPaymentProvider(settings.donationalerts_base_url, provider)
 
     if provider == "boosty":
         if not settings.boosty_base_url:
