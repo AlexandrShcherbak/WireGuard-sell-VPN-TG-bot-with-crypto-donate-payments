@@ -15,8 +15,14 @@ def main_menu_kb() -> InlineKeyboardMarkup:
 def buy_methods_kb(subscription_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text='₿ Оплатить через Crypto Bot', callback_data=f'pay_crypto:{subscription_id}')],
-            [InlineKeyboardButton(text='₽ Оплатить через донаты', callback_data=f'pay_donation:{subscription_id}')],
+            [InlineKeyboardButton(text='💳 FreeKassa', callback_data=f'pay_provider:freekassa:{subscription_id}')],
+            [InlineKeyboardButton(text='💳 Platega', callback_data=f'pay_provider:platega:{subscription_id}')],
+            [InlineKeyboardButton(text='💳 SeverPay', callback_data=f'pay_provider:severpay:{subscription_id}')],
+            [InlineKeyboardButton(text='💳 CryptoCloud', callback_data=f'pay_provider:cryptocloud:{subscription_id}')],
+            [InlineKeyboardButton(text='💳 CrystalPay', callback_data=f'pay_provider:crystalpay:{subscription_id}')],
+            [InlineKeyboardButton(text='🤖 CryptoBot', callback_data=f'pay_provider:cryptobot:{subscription_id}')],
+            [InlineKeyboardButton(text='💝 DonationAlerts', callback_data=f'pay_provider:donationalerts:{subscription_id}')],
+            [InlineKeyboardButton(text='⭐ Boosty', callback_data=f'pay_provider:boosty:{subscription_id}')],
             [InlineKeyboardButton(text='🏦 Оплатить по СБП', callback_data=f'pay_sbp:{subscription_id}')],
             [InlineKeyboardButton(text='⬅️ В меню', callback_data='menu')],
         ]

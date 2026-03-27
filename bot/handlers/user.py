@@ -1,6 +1,6 @@
 import logging
 from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import Message, CallbackQuery
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -45,12 +45,27 @@ def _build_howto_text() -> str:
         '• Android: https://play.google.com/store/apps/details?id=com.wireguard.android\n'
         '• iOS: https://apps.apple.com/us/app/wireguard/id1441195209\n'
         '• Windows/macOS/Linux: https://www.wireguard.com/install/\n\n'
-        '2) После оплаты отправьте чек в поддержку.\n'
-        '3) Поддержка выдаст .conf и QR-код в личные сообщения.\n'
-        '4) В приложении WireGuard импортируйте конфиг (или отсканируйте QR).\n'
-        '5) Включите туннель и проверьте IP: https://2ip.ru\n\n'
+        f'2) После оплаты перейдите в бота: {settings.telegram_bot_url}\n'
+        '3) Отправьте чек в поддержку.\n'
+        '4) Поддержка выдаст .conf и QR-код в личные сообщения.\n'
+        '5) В приложении WireGuard импортируйте конфиг (или отсканируйте QR).\n'
+        '6) Включите туннель и проверьте IP: https://2ip.ru\n\n'
         f'Если нужна помощь — {getattr(settings, "support_contact", "@support")}'
     )
+
+
+def _provider_title(provider_name: str) -> str:
+    titles = {
+        'freekassa': 'FreeKassa',
+        'platega': 'Platega',
+        'severpay': 'SeverPay',
+        'cryptocloud': 'CryptoCloud',
+        'crystalpay': 'CrystalPay',
+        'cryptobot': 'CryptoBot',
+        'donationalerts': 'DonationAlerts',
+        'boosty': 'Boosty',
+    }
+    return titles.get(provider_name, provider_name)
 
 
 @router.message(Command("start"))
@@ -113,6 +128,7 @@ async def write_to_support(call: CallbackQuery) -> None:
     support_contact = getattr(settings, "support_contact", "@support_bot")
     await call.message.edit_text(
         f'📞 Написать в поддержку: {support_contact}\n\n'
+        f'Бот для покупки/подтверждения оплаты: {settings.telegram_bot_url}\n'
         'Опишите вашу проблему, и мы поможем!',
         reply_markup=get_main_keyboard(),
     )
@@ -166,11 +182,12 @@ async def trial_info(call: CallbackQuery) -> None:
     )
 
 
-@router.callback_query(F.data.startswith("pay_crypto:"))
-async def create_crypto_payment(call: CallbackQuery) -> None:
-    """Создание платежа через CryptoBot"""
+@router.callback_query(F.data.startswith("pay_provider:"))
+async def create_provider_payment(call: CallbackQuery) -> None:
+    """Создание платежа через выбранный провайдер."""
     try:
-        subscription_id = int(call.data.split(":")[1])
+        _, provider_name, subscription_id_raw = call.data.split(":", 2)
+        subscription_id = int(subscription_id_raw)
         
         async with SessionLocal() as session:
             subscription = await get_subscription(session, subscription_id)
@@ -185,24 +202,16 @@ async def create_crypto_payment(call: CallbackQuery) -> None:
                 await call.answer("Заказ не найден", show_alert=True)
                 return
 
-            # Проверяем настройки CryptoBot
-            cryptobot_token = getattr(settings, 'cryptobot_api_token', None) or getattr(settings, 'payment_token', None)
-            if not cryptobot_token:
-                await call.answer("CryptoBot не настроен", show_alert=True)
-                return
-
             payment = await create_payment(
                 session=session,
                 user_id=user.id,
                 amount_rub=subscription.price_rub,
                 subscription_id=subscription.id,
-                provider='cryptobot',
+                provider=provider_name,
             )
 
-        # Создаем инвойс
-        provider = CryptoBotProvider(cryptobot_token)
+        provider = get_payment_provider(provider_name, settings)
         payload = f"subscription:{subscription.id}:payment:{payment.id}"
-        
         invoice = await provider.create_invoice(
             user_id=call.from_user.id,
             amount_rub=subscription.price_rub,
@@ -217,7 +226,7 @@ async def create_crypto_payment(call: CallbackQuery) -> None:
                 await session.commit()
 
         await call.message.edit_text(
-            f'✅ <b>Счёт создан</b>\n\n'
+            f'✅ <b>Счёт создан ({_provider_title(provider_name)})</b>\n\n'
             f'Сумма: {subscription.price_rub} ₽\n'
             f'Номер счёта: <code>{invoice.invoice_id}</code>\n\n'
             f'Для оплаты перейдите по ссылке:\n{invoice.pay_url}',
@@ -226,78 +235,11 @@ async def create_crypto_payment(call: CallbackQuery) -> None:
             disable_web_page_preview=True
         )
         await call.answer()
-        
-    except Exception as e:
-        logger.error(f"Error in create_crypto_payment: {e}")
-        await call.answer("Ошибка при создании платежа", show_alert=True)
-
-
-@router.callback_query(F.data.startswith("pay_donation:"))
-async def create_donation_payment(call: CallbackQuery) -> None:
-    """Создание платежа через DonationAlerts"""
-    try:
-        subscription_id = int(call.data.split(":")[1])
-        
-        async with SessionLocal() as session:
-            subscription = await get_subscription(session, subscription_id)
-            user = await get_or_create_user(
-                session=session,
-                telegram_id=call.from_user.id,
-                username=call.from_user.username,
-                full_name=call.from_user.full_name or "Unknown",
-            )
-            
-            if not subscription or subscription.user_id != user.id:
-                await call.answer("Заказ не найден", show_alert=True)
-                return
-
-            # Получаем провайдер DonationAlerts
-            provider = get_payment_provider("donationalerts", settings)
-            
-            # Создаем платеж в БД
-            payment = await create_payment(
-                session=session,
-                user_id=user.id,
-                amount_rub=subscription.price_rub,
-                subscription_id=subscription.id,
-                provider='donationalerts'
-            )
-
-        # Создаем инвойс
-        payload = f"subscription:{subscription.id}:payment:{payment.id}"
-        invoice = await provider.create_invoice(
-            user_id=call.from_user.id,
-            amount_rub=subscription.price_rub,
-            payload=payload
-        )
-
-        # Клавиатура для оплаты
-        keyboard = InlineKeyboardMarkup(
-            inline_keyboard=[
-                [InlineKeyboardButton(text="💳 Перейти к оплате", url=invoice.pay_url)],
-                [InlineKeyboardButton(text="✅ Я оплатил", callback_data=f"check_payment:{payment.id}")],
-                [InlineKeyboardButton(text="◀️ Назад", callback_data=f"back_to_subscription:{subscription.id}")]
-            ]
-        )
-
-        await call.message.edit_text(
-            f"💳 <b>Оплата через DonationAlerts</b>\n\n"
-            f"💰 Сумма: <b>{subscription.price_rub} RUB</b>\n"
-            f"📦 Подписка: {subscription.plan_days} дней\n"
-            f"🆔 Номер заказа: <code>{subscription.id}</code>\n\n"
-            f"Нажмите кнопку \"Перейти к оплате\" для перехода на страницу доната.\n"
-            f"После оплаты нажмите \"Я оплатил\" для активации подписки.",
-            reply_markup=keyboard,
-            parse_mode=ParseMode.HTML,
-            disable_web_page_preview=True
-        )
-        await call.answer()
-        
     except ValueError as e:
-        logger.error(f"ValueError in create_donation_payment: {e}")
-        await call.answer("Неверный формат заказа", show_alert=True)
+        logger.error(f"Provider config error: {e}")
+        await call.answer(str(e), show_alert=True)
     except Exception as e:
-        logger.error(f"Error in create_donation_payment: {e}")
+        logger.error(f"Error in create_provider_payment: {e}")
         await call.answer("Ошибка при создании платежа", show_alert=True)
 
 
@@ -349,16 +291,16 @@ async def check_payment_status(call: CallbackQuery) -> None:
             is_paid = False
             
             if payment.provider == 'cryptobot':
-                cryptobot_token = getattr(settings, 'cryptobot_api_token', None) or getattr(settings, 'payment_token', None)
+                cryptobot_token = getattr(settings, 'cryptobot_token', None) or getattr(settings, 'payment_token', None)
                 if cryptobot_token and payment.provider_payment_id:
                     provider = CryptoBotProvider(cryptobot_token)
                     status = await provider.get_status(payment.provider_payment_id)
                     is_paid = status.state == 'paid'
-            elif payment.provider == 'donationalerts':
+            elif payment.provider in {'donationalerts', 'freekassa', 'platega', 'severpay', 'cryptocloud', 'crystalpay', 'boosty'}:
                 # Для DonationAlerts нужно настроить webhook
                 # Пока пользователь подтверждает вручную
                 await call.answer(
-                    "Для DonationAlerts оплата подтверждается вручную. "
+                    "Для выбранного способа оплата подтверждается вручную. "
                     "Ожидайте подтверждения от поддержки.",
                     show_alert=True
                 )
@@ -377,6 +319,7 @@ async def check_payment_status(call: CallbackQuery) -> None:
         # Возвращаемся в меню
         await call.message.edit_text(
             "✅ Оплата подтверждена!\n\n"
+            f"🤖 Перейдите в Telegram-бот: {settings.telegram_bot_url}\n"
             "📩 Отправьте чек в личные сообщения поддержки для получения конфигурации и QR-кода.\n"
             f"Контакт поддержки: {support_contact}",
             reply_markup=get_main_keyboard()

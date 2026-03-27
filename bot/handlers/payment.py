@@ -38,6 +38,7 @@ async def cryptobot_webhook(request: web.Request) -> web.Response:
         await bot.send_message(
             user_id,
             "✅ Оплата подтверждена.\n\n"
+            f"🤖 Перейдите в Telegram-бот: {settings.telegram_bot_url}\n"
             "📩 Отправьте чек в личные сообщения поддержки, чтобы получить конфигурацию и QR-код.\n"
             f"Контакт поддержки: {support_contact}"
         )
@@ -71,6 +72,7 @@ async def donation_webhook(request: web.Request) -> web.Response:
         await bot.send_message(
             user_id,
             "✅ Оплата подтверждена.\n\n"
+            f"🤖 Перейдите в Telegram-бот: {settings.telegram_bot_url}\n"
             "📩 Отправьте чек в личные сообщения поддержки, чтобы получить конфигурацию и QR-код.\n"
             f"Контакт поддержки: {support_contact}"
         )
